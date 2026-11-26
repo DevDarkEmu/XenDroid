@@ -26,9 +26,9 @@ android {
     ndkVersion '29.0.14206865'
 
     defaultConfig {
-        applicationId 'xendroid.compose'
+        applicationId 'xendroid.nightly'
         // 29+ matches :emulator-core (native ELF TLS in libe.so).
-        minSdk 29
+        minSdk 30
         targetSdk 35
         versionCode 1
         versionName project.findProperty("gitHash") ?: "unknown"
