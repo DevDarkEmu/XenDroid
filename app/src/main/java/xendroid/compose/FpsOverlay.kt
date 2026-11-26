@@ -1,6 +1,9 @@
 package xendroid.compose
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
@@ -55,13 +58,16 @@ fun FpsOverlay(
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
     var fps by remember { mutableStateOf(0.0) }
     var frameMs by remember { mutableStateOf(0.0) }
+    var temp by remember { mutableStateOf(0f) }
 
     // ~4 Hz poll (250 ms) — enough for a human-readable readout while costing ~nothing.
     LaunchedEffect(pollHz) {
         val periodMs = 1000L / pollHz.coerceIn(1, 30)
         while (true) {
             fps = session.averageFps()
-            frameMs = session.lastFrameTimeMs()
+            frameMs = session.lastFrameTimeMs() 
+            val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+temp = (battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10f
             delay(periodMs)
         }
     }
