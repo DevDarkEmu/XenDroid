@@ -68,9 +68,9 @@ fun FpsOverlay(
 
     Box(modifier.fillMaxSize().onSizeChanged { boxSize = it }) {
         Text(
-            text = String.format(Locale.US, "FPS %.0f  ·  %.1f ms", fps, frameMs),
-            color = Color.White.copy(alpha = 0.7f),       // soft, more transparent than the old yellow
-            fontSize = 10.sp,
+            text = String.format(Locale.getDefault(), "FPS: %.1f | %.1f°C", fps, temp),
+color = Color(0xFFFF1493),
+fontSize = 16.sp,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier
                 .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
