@@ -1,0 +1,42 @@
+name: Create signing key
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-key:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate keystore
+        env:
+          KS_PASS: ${{ secrets.NIGHTLY_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_PASS" ]; then
+            echo "::error::Secret NIGHTLY_KEYSTORE_PASSWORD is not configured."
+            exit 1
+          fi
+          if [ -f signing/nightly.keystore ]; then
+            echo "::error::signing/nightly.keystore already exists."
+            exit 1
+          fi
+          mkdir -p signing
+          keytool -genkeypair \
+            -keystore signing/nightly.keystore \
+            -storetype PKCS12 \
+            -alias nightly \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$KS_PASS" -keypass "$KS_PASS" \
+            -dname "CN=XenDroid Nightly"
+
+      - name: Commit keystore
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add signing/nightly.keystore
+          git commit -m "Add Nightly signing keystore"
+          git push
