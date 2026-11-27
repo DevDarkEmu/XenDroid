@@ -65,7 +65,7 @@ bool SDLAudioDriver::Initialize() {
   spec.format = SDL_AUDIO_F32;
   spec.channels = static_cast<int>(frame_channels_);
   spec.freq = static_cast<int>(frame_frequency_);
-
+  SDL_SetHint(SDL_HINT_AUDIO_DEVICE_SAMPLE_FRAMES, "1024");
   sdl_stream_ = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
                                           &spec, SDLCallback, this);
   if (!sdl_stream_) {
@@ -166,14 +166,21 @@ void SDLAudioDriver::SDLCallback(void* userdata, SDL_AudioStream* stream,
   // silence — the producer will catch up on the next callback.
   while (additional_amount > 0) {
     float* buffer;
-    {
+        {
       std::unique_lock<std::mutex> guard(driver->frames_mutex_);
+      if (driver->buffering_) {
+        if (driver->frames_queued_.size() < kPrebufferFrames) {
+          return;
+        }
+        driver->buffering_ = false;
+      }
       if (driver->frames_queued_.empty()) {
+        driver->buffering_ = true;
         return;
       }
       buffer = driver->frames_queued_.front();
       driver->frames_queued_.pop();
-    }
+        }
 
     // Produce a scratch buffer in SDL3's expected format. With manual downmix
     // we go straight from BE-sequential 5.1 to interleaved LE stereo via the
