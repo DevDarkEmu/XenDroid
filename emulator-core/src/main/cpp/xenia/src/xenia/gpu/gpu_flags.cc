@@ -192,7 +192,7 @@ DEFINE_bool(submit_on_primary_buffer_end, true,
             "possible to submit immediately to try to reduce frame latency.",
             "GPU");
 
-DEFINE_bool(no_discard_stencil_in_transfer_pipelines, true,
+DEFINE_bool(no_discard_stencil_in_transfer_pipelines, false,
             "Skip stencil bit discard in render target transfer pipelines. "
             "May improve performance on some GPUs.",
             "GPU");
