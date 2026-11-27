@@ -75,7 +75,7 @@ temp = (battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10f
     Box(modifier.fillMaxSize().onSizeChanged { boxSize = it }) {
         Text(
             text = String.format(Locale.getDefault(), "FPS: %.1f | %.1f°C", fps, temp),
-color = Color(0xFFFF1493),
+color = Color(0xFFFF1E1E),
 fontSize = 16.sp,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier
