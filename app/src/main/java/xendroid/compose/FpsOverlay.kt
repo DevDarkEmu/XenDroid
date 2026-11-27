@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -77,10 +79,12 @@ temp = (battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10f
             text = String.format(Locale.getDefault(), "FPS: %.1f | %.1f°C", fps, temp),
 color = Color(0xFFFF1E1E),
 fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier
                 .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
-                .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(4.dp))
+                .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(4.dp)) 
+                .border(1.dp, Color(0xFF8B0000), RoundedCornerShape(4.dp))
                 .padding(horizontal = 5.dp, vertical = 1.dp)
                 .pointerInput(boxSize) {
                     detectDragGestures(
