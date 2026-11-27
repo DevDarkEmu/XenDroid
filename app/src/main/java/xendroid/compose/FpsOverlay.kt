@@ -57,10 +57,17 @@ fun FpsOverlay(
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("fps_overlay", Context.MODE_PRIVATE) }
     var offset by remember { mutableStateOf(Offset(prefs.getFloat("x", 0f), prefs.getFloat("y", 0f))) }
-    var boxSize by remember { mutableStateOf(IntSize.Zero) }
+    var boxSize by remember { mutableStateOf(IntSize.Zero) } 
+        var textSize by remember { mutableStateOf(IntSize.Zero) }
     var fps by remember { mutableStateOf(0.0) }
     var frameMs by remember { mutableStateOf(0.0) }
-    var temp by remember { mutableStateOf(0f) }
+    var temp by remember { mutableStateOf(0f) } 
+         // Sem posição salva, o contador começa centralizado no topo da tela.
+    LaunchedEffect(boxSize, textSize) {
+        if (!prefs.contains("x") && boxSize.width > 0 && textSize.width > 0) {
+            offset = Offset((boxSize.width - textSize.width) / 2f, 0f)
+        }
+    }   
 
     // ~4 Hz poll (250 ms) — enough for a human-readable readout while costing ~nothing.
     LaunchedEffect(pollHz) {
@@ -82,7 +89,8 @@ fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
             modifier = Modifier
-                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) }
+                .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) } 
+                                .onSizeChanged { textSize = it }
                 .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(4.dp)) 
                 .border(1.dp, Color(0xFF8B0000), RoundedCornerShape(4.dp))
                 .padding(horizontal = 5.dp, vertical = 1.dp)
