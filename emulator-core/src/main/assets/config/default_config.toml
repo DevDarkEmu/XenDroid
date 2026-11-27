@@ -10,7 +10,8 @@ use_dedicated_xma_thread = true                   	# Enables XMA decoding on sep
 xma_decoder = "new"                               	# Decoder version used to process XMA audio. Use: [fake, master, old, new]. 'old' has an edge-case stall on some streams; 'new' is the maintained default.
 
 
-[CPU]
+[CPU] 
+a64_perf_map = false
 break_condition_gpr = -1                          	# GPR compared to
 break_condition_op = "eq"                         	# comparison operator
 break_condition_truncate = true                   	# truncate value to 32-bits
@@ -324,7 +325,7 @@ internal_display_resolution_y = 720               	# Custom height. See internal
 
 [Vulkan]
 adrenotools_force_max_clocks = false              	# Custom Driver Force Max Clocks
-turnip_debug = "sysmem"                           	# TU_DEBUG flags for the Turnip (Mesa freedreno) Vulkan driver. 'sysmem' forces untiled rendering, avoiding a class of Adreno GPU hangs (device-loss). Empty leaves TU_DEBUG unset.
+turnip_debug = ''                           	# TU_DEBUG flags for the Turnip (Mesa freedreno) Vulkan driver. 'sysmem' forces untiled rendering, avoiding a class of Adreno GPU hangs (device-loss). Empty leaves TU_DEBUG unset.
 vulkan_allow_present_mode_fifo_relaxed = true     	# When available, allow the relaxed first-in-first-out presentation mode (3rd priority), which causes waiting for host display vertical sync, but may present with tearing if frames don't meet the host display refresh rate.
 vulkan_allow_present_mode_immediate = true        	# When available, allow the immediate presentation mode (1st priority), offering the lowest latency with the possibility of tearing in certain cases, and, depending on the configuration, variable refresh rate.
 vulkan_allow_present_mode_mailbox = true          	# When available, allow the mailbox presentation mode (2nd priority), offering low latency without the possibility of tearing.
@@ -334,7 +335,7 @@ vulkan_device = -1                                	# Index of the preferred Vulk
 vulkan_dynamic_pipeline_state = true              	# Use VK_EXT_extended_dynamic_state (and state 2/3 where available) to move cull/front-face/topology/depth/stencil/blend out of the baked graphics pipeline into dynamic state, collapsing pipeline permutations and reducing shader-compile stutter. Disable to fall back to fully static pipelines.
 vulkan_lib_path = ""                              	# Custom Driver Library Path
 vulkan_log_debug_messages = false                  	# Write Vulkan VK_EXT_debug_utils messages to the Xenia log, as opposed to the OS debug output.
-vulkan_pipeline_creation_threads = 4              	# Threads for asynchronous graphics pipeline creation. 0 = synchronous; -1 = auto (75% of cores); positive N = explicit count. Async moves compilation off the draw thread entirely (no inline compiles); by default the submission boundary waits for completion so no draw is dropped (see vulkan_async_skip_draws).
+vulkan_pipeline_creation_threads = 2              	# Threads for asynchronous graphics pipeline creation. 0 = synchronous; -1 = auto (75% of cores); positive N = explicit count. Async moves compilation off the draw thread entirely (no inline compiles); by default the submission boundary waits for completion so no draw is dropped (see vulkan_async_skip_draws).
 vulkan_placeholder_pipelines = false              	# Asynchronous shader compilation model (A/B). false (default): the fork's deferred-bind model - no placeholder is created, unready draws pop in at the submission boundary; preferred because the skipped-draw pop-in is smoother than the jarring artifacts produced by the placeholder pipeline. true: upstream xenia-edge placeholder hot-swap - an immediate placeholder (no-op pixel shader, or a ucode-interpreter vertex shader) renders until the real pipeline finishes compiling. Both share async_shader_compilation and vulkan_pipeline_creation_threads.
 vulkan_sparse_shared_memory = true                	# Enable sparse binding for shared memory emulation. Disabling it increases video memory usage - a 512 MB buffer is created - but allows graphics debuggers that don't support sparse binding to work.
 vulkan_validation = false                         	# Enable the Vulkan validation layer (VK_LAYER_KHRONOS_validation). Messages will be written to the Xenia log if 'vulkan_log_debug_messages' is enabled, or to the OS debug output otherwise.
