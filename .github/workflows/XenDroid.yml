@@ -115,24 +115,26 @@ jobs:
             --max-workers=$(nproc) \
             --no-daemon
 
-      - name: Generate own keystore
+      - name: Sign APK with fixed key
+        env:
+          KS_PASS: ${{ secrets.NIGHTLY_KEYSTORE_PASSWORD }}
         run: |
-          keytool -genkeypair -v \
-            -keystore release.keystore \
-            -alias nightly \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass nightly123 -keypass nightly123 \
-            -dname "CN=XenDroid Nightly"
+          if [ -z "$KS_PASS" ]; then
+            echo "::error::Secret NIGHTLY_KEYSTORE_PASSWORD is not configured."
+            exit 1
+          fi
+          if [ ! -f signing/nightly.keystore ]; then
+            echo "::error::signing/nightly.keystore not found."
+            exit 1
+          fi
 
-      - name: Sign APK
-        run: |
           APK=$(find . -name "*release*.apk" | head -n 1)
 
           "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" sign \
-            --ks release.keystore \
+            --ks signing/nightly.keystore \
             --ks-key-alias nightly \
-            --ks-pass pass:nightly123 \
-            --key-pass pass:nightly123 \
+            --ks-pass env:KS_PASS \
+            --key-pass env:KS_PASS \
             "$APK"
 
       - name: Compute SHA
