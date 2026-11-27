@@ -55,6 +55,9 @@ class SDLAudioDriver : public AudioDriver {
   bool need_format_conversion_;
   // Guest is 5.1 and device is stereo: do the downmix here, not in SDL3.
   bool manual_downmix_5_1_to_stereo_ = false;
+  // Só começa a tocar depois de acumular alguns frames (evita estalos).
+  static constexpr size_t kPrebufferFrames = 4;
+  bool buffering_ = true;  // protegido por frames_mutex_
   std::queue<float*> frames_queued_ = {};
   std::stack<float*> frames_unused_ = {};
   std::mutex frames_mutex_ = {};
