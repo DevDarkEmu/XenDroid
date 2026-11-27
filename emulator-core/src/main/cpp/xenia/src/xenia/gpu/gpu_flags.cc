@@ -52,7 +52,7 @@ DEFINE_bool(guest_display_refresh_cap, true,
             "GPU");
 
 DEFINE_uint32(
-    framerate_limit, 60,
+    framerate_limit, 30,
     "Host frame rate limit in FPS. 0 = unlimited.\n"
     "Throttles presentation without affecting guest vblank timing.\n"
     "Guest vblanks are controlled by use_50Hz_mode (50Hz PAL, 60Hz NTSC).\n"
@@ -192,7 +192,7 @@ DEFINE_bool(submit_on_primary_buffer_end, true,
             "possible to submit immediately to try to reduce frame latency.",
             "GPU");
 
-DEFINE_bool(no_discard_stencil_in_transfer_pipelines, false,
+DEFINE_bool(no_discard_stencil_in_transfer_pipelines, true,
             "Skip stencil bit discard in render target transfer pipelines. "
             "May improve performance on some GPUs.",
             "GPU");
@@ -241,7 +241,7 @@ DEFINE_bool(
     "reading back specific pixel values (e.g., for gamma detection).",
     "GPU");
 
-DEFINE_bool(readback_resolve_sync, true,
+DEFINE_bool(readback_resolve_sync, false,
             "Stall the GPU after each readback_resolve copy so guest RAM is "
             "coherent in "
             "the same frame, instead of copying asynchronously.",
@@ -252,7 +252,7 @@ DEFINE_bool(gpu_3d_to_2d_texture, true,
             "texture from slice 0 of the guest memory.",
             "GPU");
 
-DEFINE_int32(anisotropic_override, -1,
+DEFINE_int32(anisotropic_override, 0,
              "Forces anisotropic filtering (AF) for eligible textures.\n"
              "Higher values keep textures sharper at oblique angles at the "
              "cost of GPU bandwidth, though most GPUs handle up to 16x fine.\n"
