@@ -3,6 +3,18 @@ package xendroid.compose.ui.library
 import android.app.Activity
 import android.content.Context
 import android.util.Log
+import android.os.Build
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.style.TextAlign
+import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,25 +79,16 @@ import xendroid.compose.updater.checkForUpdates
 import xendroid.compose.updater.shouldCheckForUpdates
 import xendroid.compose.updater.saveLastCheck
 
-// ---- XenDroid Nightly look: black, neon red, white -------------------------------------
+// ---- XenDroid Adreno look: black, green, white -----------------------------------------
 
-private val NeonRed = Color(0xFFFF1E1E)
-private val DeepRed = Color(0xFF8B0000)
-private val PanelBlack = Color(0xE6080808)
+private val Green = Color(0xFF76B900)
+private val GreenDim = Color(0xFF3D6100)
+private val PageBg = Color(0xFF050505)
+private val PanelBg = Color(0xFF0A0A0A)
+private val LineGreen = Color(0xFF1E2B0E)
+private val MutedText = Color(0xFFB0B0B0)
 
-/** Hexagon-ish button shape used by the menu and the Play button. */
-private val HexShape = GenericShape { size, _ ->
-    val c = size.height * 0.3f
-    moveTo(c, 0f)
-    lineTo(size.width - c, 0f)
-    lineTo(size.width, size.height / 2f)
-    lineTo(size.width - c, size.height)
-    lineTo(c, size.height)
-    lineTo(0f, size.height / 2f)
-    close()
-}
-
-private data class MenuEntry(
+private data class SideEntry(
     val label: String,
     val icon: ImageVector,
     val selected: Boolean,
@@ -156,11 +159,9 @@ fun GameLibraryScreen(
     }
 
     var menuOpen by remember { mutableStateOf(false) }
-    var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
-    val loadedGames = (state as? LibraryUiState.Loaded)?.games.orEmpty()
-    val selectedGame = loadedGames.firstOrNull { it.stableId == selectedId }
-        ?: loadedGames.firstOrNull()
-    val setFolderLabel = if (allFilesGranted) "Set game folder" else "Grant All Files Access"
+    var tab by rememberSaveable { mutableStateOf("home") }
+    val games = (state as? LibraryUiState.Loaded)?.games.orEmpty()
+    val addLabel = if (allFilesGranted) "ADICIONAR JOGO" else "CONCEDER ACESSO AOS ARQUIVOS"
 
     val launch: (Game) -> Unit = { game ->
         scope.launch {
@@ -175,30 +176,81 @@ fun GameLibraryScreen(
         }
     }
 
-    XenBackground(Modifier.fillMaxSize()) {
+    // Everything the old top-bar overflow menu offered still lives here (the "⋮" in the header).
+    val dropdown: @Composable () -> Unit = {
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            DropdownMenuItem(
+                text = { Text("Atualizar biblioteca") },
+                onClick = { menuOpen = false; viewModel.refresh() },
+            )
+            if (AllFilesAccess.isSupported) {
+                DropdownMenuItem(
+                    text = { Text("Set game folder") },
+                    onClick = { menuOpen = false; startRealPathMode() },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Install content") },
+                onClick = { menuOpen = false; onOpenInstallContent() },
+            )
+            DropdownMenuItem(
+                text = { Text("Profiles") },
+                onClick = { menuOpen = false; onOpenProfiles() },
+            )
+            DropdownMenuItem(
+                text = { Text("Key mapping") },
+                onClick = { menuOpen = false; onOpenKeymap() },
+            )
+            DropdownMenuItem(
+                text = { Text("Touch controls") },
+                onClick = { menuOpen = false; onOpenTouchControls() },
+            )
+            DropdownMenuItem(
+                text = { Text("Open user data") },
+                onClick = {
+                    menuOpen = false
+                    openUserData(context)
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Check for Updates") },
+                onClick = {
+                    menuOpen = false
+                    checkForUpdatesClicked(
+                        context = context,
+                        scope = scope,
+                        onResult = { updateResult = it }
+                    )
+                }
+            )
+        }
+    }
+
+    Box(Modifier.fillMaxSize().background(PageBg)) {
         BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding()) {
             val wide = maxWidth > maxHeight
 
             val entries = buildList {
-                add(MenuEntry("Jogos", Icons.Default.Home, true) {})
+                add(SideEntry("INÍCIO", Icons.Default.Home, tab == "home") { tab = "home" })
+                add(SideEntry("JOGOS", Icons.Default.PlayArrow, tab == "games") { tab = "games" })
                 // Only offered where All Files Access exists (API 30+).
                 if (AllFilesAccess.isSupported) {
-                    add(MenuEntry("Arquivos", Icons.Default.Add, false) { startRealPathMode() })
+                    add(SideEntry("ARQUIVOS", Icons.Default.Add, false) { startRealPathMode() })
                 }
-                add(MenuEntry("Configurações", Icons.Default.Settings, false) { onOpenSettings() })
-                add(MenuEntry("Sobre", Icons.Default.Info, false) { onOpenAbout() })
-                add(MenuEntry("Mais", Icons.Default.MoreVert, false) { menuOpen = true })
+                add(SideEntry("CONFIGURAÇÕES", Icons.Default.Settings, false) { onOpenSettings() })
+                add(SideEntry("CONTROLES", Icons.Default.Face, false) { onOpenTouchControls() })
+                add(SideEntry("SOBRE", Icons.Default.Info, false) { onOpenAbout() })
             }
 
-            val body: @Composable (Modifier) -> Unit = { mod ->
-                LibraryBody(
+            val panel: @Composable (Modifier) -> Unit = { mod ->
+                LibraryPanel(
                     state = state,
-                    wide = wide,
+                    tab = tab,
                     viewModel = viewModel,
-                    setFolderLabel = setFolderLabel,
-                    startRealPathMode = startRealPathMode,
-                    selected = selectedGame,
-                    onSelect = { selectedId = it.stableId },
+                    addLabel = addLabel,
+                    onAdd = startRealPathMode,
+                    onScan = { viewModel.refresh() },
+                    onInstall = onOpenInstallContent,
                     onLaunch = launch,
                     onLongPress = { pendingGame = it },
                     onQuit = { (context as? Activity)?.finish() },
@@ -208,86 +260,55 @@ fun GameLibraryScreen(
 
             if (wide) {
                 Column(Modifier.fillMaxSize()) {
-                    XenHeader(Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
-                    Row(Modifier.weight(1f).fillMaxWidth()) {
+                    AdrenoHeader(
+                        wide = true,
+                        onMenu = { menuOpen = true },
+                        menu = dropdown,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    Row(
+                        Modifier.weight(1f).fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        val shape = RoundedCornerShape(16.dp)
                         Column(
                             Modifier
-                                .width(230.dp)
+                                .width(250.dp)
                                 .fillMaxHeight()
-                                .verticalScroll(rememberScrollState())
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                                .clip(shape)
+                                .background(PanelBg)
+                                .border(1.dp, LineGreen, shape)
+                                .padding(8.dp),
                         ) {
-                            entries.forEach {
-                                MenuButton(it, Modifier.fillMaxWidth())
+                            Column(
+                                Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                entries.forEach { SideItem(it, Modifier.fillMaxWidth()) }
                             }
+                            StatusCard(count = games.size, ready = state is LibraryUiState.Loaded)
                         }
-                        body(Modifier.weight(1f).fillMaxHeight())
+                        panel(Modifier.weight(1f).fillMaxHeight())
                     }
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    XenHeader(Modifier.padding(start = 16.dp, top = 8.dp, bottom = 4.dp))
+                    AdrenoHeader(
+                        wide = false,
+                        onMenu = { menuOpen = true },
+                        menu = dropdown,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        entries.forEach { MenuButton(it, Modifier) }
+                        entries.forEach { SideItem(it, Modifier) }
                     }
-                    body(Modifier.weight(1f).fillMaxWidth())
-                }
-            }
-
-            // Everything the old top-bar overflow menu offered still lives here.
-            Box(Modifier.align(Alignment.TopStart)) {
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Atualizar biblioteca") },
-                        onClick = { menuOpen = false; viewModel.refresh() },
-                    )
-                    if (AllFilesAccess.isSupported) {
-                        DropdownMenuItem(
-                            text = { Text("Set game folder") },
-                            onClick = { menuOpen = false; startRealPathMode() },
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text("Install content") },
-                        onClick = { menuOpen = false; onOpenInstallContent() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Profiles") },
-                        onClick = { menuOpen = false; onOpenProfiles() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Key mapping") },
-                        onClick = { menuOpen = false; onOpenKeymap() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Touch controls") },
-                        onClick = { menuOpen = false; onOpenTouchControls() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Open user data") },
-                        onClick = {
-                            menuOpen = false
-                            openUserData(context)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Check for Updates") },
-                        onClick = {
-                            menuOpen = false
-                            checkForUpdatesClicked(
-                                context = context,
-                                scope = scope,
-                                onResult = { updateResult = it }
-                            )
-                        }
-                    )
+                    panel(Modifier.weight(1f).fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 8.dp))
                 }
             }
         }
@@ -544,277 +565,372 @@ fun GameLibraryScreen(
     }
 }
 
+
 // ---- Visual building blocks -------------------------------------------------------------
 
-/** Black background with the diagonal red stripes from the mockups. */
 @Composable
-private fun XenBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
-    Box(
-        modifier
-            .background(Color.Black)
-            .drawBehind {
-                val w = size.width
-                val h = size.height
-                fun stripe(x0: Float, x1: Float, color: Color) {
-                    val p = Path().apply {
-                        moveTo(x0, 0f)
-                        lineTo(x1, 0f)
-                        lineTo(x1 - h * 0.6f, h)
-                        lineTo(x0 - h * 0.6f, h)
-                        close()
-                    }
-                    drawPath(p, color)
-                }
-                stripe(w * 0.62f, w * 0.70f, DeepRed.copy(alpha = 0.55f))
-                stripe(w * 0.72f, w * 0.74f, NeonRed.copy(alpha = 0.85f))
-                stripe(w * 0.80f, w * 0.90f, DeepRed.copy(alpha = 0.35f))
-                stripe(w * 0.92f, w * 0.94f, Color.White.copy(alpha = 0.35f))
-            },
-        content = content,
-    )
+private fun AdrenoHeader(
+    wide: Boolean,
+    onMenu: () -> Unit,
+    menu: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    // The launcher icon doubles as the logo, so this follows whatever icon the APK ships.
+    val logo = remember {
+        runCatching {
+            context.packageManager.getApplicationIcon(context.packageName)
+                .toBitmap(160, 160).asImageBitmap()
+        }.getOrNull()
+    }
+    val soc = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else Build.HARDWARE
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        logo?.let {
+            Image(
+                bitmap = it,
+                contentDescription = null,
+                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)),
+            )
+            Spacer(Modifier.width(10.dp))
+        }
+        Column {
+            Text(
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = Color.White)) { append("XenDroid") }
+                    withStyle(SpanStyle(color = Green)) { append(" ADRENO") }
+                },
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text("Emulador de Xbox 360 para Android", color = Color.White, fontSize = 12.sp)
+        }
+        Spacer(Modifier.weight(1f))
+        if (wide) {
+            Text(soc, color = Color.White, fontSize = 14.sp)
+            Text("   |   ", color = Color(0xFF444444), fontSize = 14.sp)
+            Text(Build.MODEL, color = Color.White, fontSize = 14.sp)
+            Spacer(Modifier.width(8.dp))
+        }
+        Box {
+            IconButton(onClick = onMenu) {
+                Icon(Icons.Default.MoreVert, contentDescription = "Menu", tint = Color.White)
+            }
+            menu()
+        }
+    }
 }
 
 @Composable
-private fun XenHeader(modifier: Modifier = Modifier) {
-    Text(
-        text = buildAnnotatedString {
-            withStyle(SpanStyle(color = Color.White)) { append("Xen") }
-            withStyle(SpanStyle(color = NeonRed)) { append("D") }
-            withStyle(SpanStyle(color = Color.White)) { append("roid") }
-            withStyle(SpanStyle(color = Color.White, fontSize = 14.sp)) { append("  Nightly") }
-        },
-        fontSize = 30.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun MenuButton(entry: MenuEntry, modifier: Modifier = Modifier) {
-    val fill = if (entry.selected) {
-        Brush.horizontalGradient(listOf(DeepRed, NeonRed))
+private fun SideItem(entry: SideEntry, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(10.dp)
+    val base = modifier.clip(shape)
+    val styled = if (entry.selected) {
+        base
+            .background(Brush.horizontalGradient(listOf(Color(0xFF1B2D08), Color(0xFF0C1206))), shape)
+            .border(1.5.dp, Green, shape)
     } else {
-        Brush.horizontalGradient(listOf(Color(0xFF0D0D0D), Color(0xFF1C1C1C)))
+        base
     }
     Row(
-        modifier
-            .clip(HexShape)
-            .background(fill, HexShape)
-            .border(2.dp, if (entry.selected) Color.White else DeepRed, HexShape)
-            .clickable(onClick = entry.onClick)
-            .padding(horizontal = 22.dp, vertical = 12.dp),
+        styled.clickable(onClick = entry.onClick).padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(entry.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-        Spacer(Modifier.width(12.dp))
-        Text(entry.label, color = Color.White, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Icon(
+            entry.icon,
+            contentDescription = null,
+            tint = if (entry.selected) Green else MutedText,
+            modifier = Modifier.size(24.dp),
+        )
+        Spacer(Modifier.width(14.dp))
+        Text(entry.label, color = Color.White, fontSize = 15.sp, maxLines = 1)
+    }
+}
+
+@Composable
+private fun StatusCard(count: Int, ready: Boolean) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .clip(shape)
+            .background(Color(0xFF111111))
+            .padding(12.dp),
+    ) {
+        Text("STATUS DO EMULADOR", color = Green, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(if (ready) Green else Color(0xFFAA8800)),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (ready) "Pronto para jogar" else "Aguardando jogos",
+                color = Color.White,
+                fontSize = 13.sp,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        Text("Android ${Build.VERSION.RELEASE}", color = MutedText, fontSize = 12.sp)
+        Text("Jogos: $count", color = MutedText, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(text, color = Green, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = modifier)
+}
+
+@Composable
+private fun GreenButton(label: String, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Green)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 28.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
 }
 
 /** Switches between the library states; same cases and actions as before. */
 @Composable
-private fun LibraryBody(
+private fun LibraryPanel(
     state: LibraryUiState,
-    wide: Boolean,
+    tab: String,
     viewModel: GameLibraryViewModel,
-    setFolderLabel: String,
-    startRealPathMode: () -> Unit,
-    selected: Game?,
-    onSelect: (Game) -> Unit,
+    addLabel: String,
+    onAdd: () -> Unit,
+    onScan: () -> Unit,
+    onInstall: () -> Unit,
     onLaunch: (Game) -> Unit,
     onLongPress: (Game) -> Unit,
     onQuit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier, contentAlignment = Alignment.Center) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(modifier.clip(shape).background(PanelBg).border(1.dp, LineGreen, shape)) {
         when (val s = state) {
             LibraryUiState.NoVulkan -> NoVulkanDialog(onQuit = onQuit)
-            LibraryUiState.Loading -> CircularProgressIndicator(color = NeonRed)
+            LibraryUiState.Loading ->
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Green)
+                }
             // All Files Access is API 30+; on API 29 there is no games path at all.
             LibraryUiState.NoFolder ->
                 if (AllFilesAccess.isSupported)
-                    EmptyMessage("No game folder set", setFolderLabel, onAction = startRealPathMode)
+                    EmptyLibrary(
+                        "NENHUM JOGO ADICIONADO",
+                        "Adicione seus jogos de Xbox 360 para começar a jogar.",
+                        addLabel, onAdd, onScan, onInstall,
+                    )
                 else
-                    EmptyMessage(
-                        "Setting a game folder requires Android 11 or newer.",
-                        "OK", onAction = {})
+                    EmptyLibrary(
+                        "PASTA DE JOGOS INDISPONÍVEL",
+                        "Definir uma pasta de jogos exige Android 11 ou mais novo.",
+                        null, {}, onScan, onInstall,
+                    )
             LibraryUiState.PermissionLost ->
-                EmptyMessage("Folder access lost", setFolderLabel, onAction = startRealPathMode)
-            is LibraryUiState.Error ->
-                EmptyMessage(s.message, "Retry", onAction = { viewModel.refresh() })
-            is LibraryUiState.Loaded ->
-                if (s.games.isEmpty() || selected == null)
-                    EmptyMessage("No games in this folder", "Choose another",
-                        onAction = startRealPathMode)
-                else GameShowcase(
-                    games = s.games,
-                    selected = selected,
-                    wide = wide,
-                    viewModel = viewModel,
-                    onSelect = onSelect,
-                    onLaunch = onLaunch,
-                    onLongPress = onLongPress,
+                EmptyLibrary(
+                    "ACESSO À PASTA PERDIDO",
+                    "Conceda o acesso aos arquivos novamente para ver seus jogos.",
+                    addLabel, onAdd, onScan, onInstall,
                 )
+            is LibraryUiState.Error ->
+                EmptyLibrary("ALGO DEU ERRADO", s.message, "TENTAR NOVAMENTE", onScan, onScan, onInstall)
+            is LibraryUiState.Loaded ->
+                when {
+                    s.games.isEmpty() ->
+                        EmptyLibrary(
+                            "NENHUM JOGO ENCONTRADO",
+                            "Esta pasta não tem jogos reconhecidos.",
+                            "ESCOLHER OUTRA PASTA", onAdd, onScan, onInstall,
+                        )
+                    tab == "games" -> GamesGrid(s.games, viewModel, onLaunch, onLongPress)
+                    else -> HomeContent(s.games, viewModel, onLaunch, onLongPress, onAdd, onScan, onInstall)
+                }
         }
     }
 }
 
-/** Big cover + info panel + a carousel of every game, like the mockup. */
 @Composable
-private fun GameShowcase(
+private fun EmptyLibrary(
+    title: String,
+    subtitle: String,
+    actionLabel: String?,
+    onAction: () -> Unit,
+    onScan: () -> Unit,
+    onInstall: () -> Unit,
+) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SectionTitle("MEUS JOGOS", Modifier.align(Alignment.Start))
+        Spacer(Modifier.height(12.dp))
+        Column(
+            Modifier.fillMaxWidth().clip(shape).border(1.dp, LineGreen, shape).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center)
+            Spacer(Modifier.height(6.dp))
+            Text(subtitle, color = MutedText, fontSize = 14.sp, textAlign = TextAlign.Center)
+            if (actionLabel != null) {
+                Spacer(Modifier.height(16.dp))
+                GreenButton(actionLabel, onAction)
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        SectionTitle("AÇÕES RÁPIDAS", Modifier.align(Alignment.Start))
+        Spacer(Modifier.height(10.dp))
+        QuickActions(onFolder = onAction, onScan = onScan, onInstall = onInstall)
+    }
+}
+
+@Composable
+private fun HomeContent(
     games: List<Game>,
-    selected: Game,
-    wide: Boolean,
     viewModel: GameLibraryViewModel,
-    onSelect: (Game) -> Unit,
+    onLaunch: (Game) -> Unit,
+    onLongPress: (Game) -> Unit,
+    onAdd: () -> Unit,
+    onScan: () -> Unit,
+    onInstall: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp)) {
+        SectionTitle("MEUS JOGOS")
+        Spacer(Modifier.height(12.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            items(games, key = { it.stableId }) { game ->
+                GameCard(game, viewModel, onLaunch, onLongPress, Modifier.width(130.dp))
+            }
+        }
+        Spacer(Modifier.height(20.dp))
+        HorizontalDivider(color = LineGreen)
+        Spacer(Modifier.height(16.dp))
+        SectionTitle("AÇÕES RÁPIDAS")
+        Spacer(Modifier.height(10.dp))
+        QuickActions(onFolder = onAdd, onScan = onScan, onInstall = onInstall)
+    }
+}
+
+@Composable
+private fun GamesGrid(
+    games: List<Game>,
+    viewModel: GameLibraryViewModel,
     onLaunch: (Game) -> Unit,
     onLongPress: (Game) -> Unit,
 ) {
     Column(Modifier.fillMaxSize()) {
-        if (wide) {
-            Row(
-                Modifier.weight(1f).fillMaxWidth().padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                GameCover(selected, viewModel, Modifier.weight(1.4f).fillMaxHeight())
-                GameInfoPanel(selected, onLaunch, Modifier.weight(1f).fillMaxHeight())
+        SectionTitle("TODOS OS JOGOS", Modifier.padding(start = 20.dp, top = 16.dp, end = 20.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 130.dp),
+            contentPadding = PaddingValues(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            gridItems(games, key = { it.stableId }) { game ->
+                GameCard(game, viewModel, onLaunch, onLongPress)
             }
-        } else {
-            GameCover(selected, viewModel, Modifier.weight(1f).fillMaxWidth().padding(8.dp))
-            GameInfoPanel(selected, onLaunch, Modifier.fillMaxWidth().padding(horizontal = 8.dp))
         }
-        GameCarousel(games, selected, viewModel, onSelect, onLaunch, onLongPress)
     }
 }
 
+/** Tap launches the game (like the mockup); long-press opens the per-game options. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GameCover(game: Game, viewModel: GameLibraryViewModel, modifier: Modifier = Modifier) {
+private fun GameCard(
+    game: Game,
+    viewModel: GameLibraryViewModel,
+    onLaunch: (Game) -> Unit,
+    onLongPress: (Game) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
+    // Once per card: the File.exists() stat must not run on every recomposition.
     val iconModel = remember(game.stableId) { viewModel.iconFileOrFallback(game) }
-    val shape = RoundedCornerShape(20.dp)
-    Box(
-        modifier
-            .clip(shape)
-            .background(Color(0xFF0D0D0D))
-            .border(3.dp, NeonRed, shape),
-        contentAlignment = Alignment.Center,
-    ) {
-        AsyncImage(
-            model = ImageRequest.Builder(context).data(iconModel).build(),
-            contentDescription = game.name,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize().padding(16.dp),
-        )
-    }
-}
-
-@Composable
-private fun GameInfoPanel(game: Game, onLaunch: (Game) -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(10.dp)
     Column(
-        modifier
-            .clip(shape)
-            .background(PanelBlack)
-            .border(2.dp, DeepRed, shape)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier.combinedClickable(onClick = { onLaunch(game) }, onLongClick = { onLongPress(game) }),
     ) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(shape)
+                .background(Color(0xFF0D0D0D))
+                .border(1.dp, GreenDim, shape),
+            contentAlignment = Alignment.Center,
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context).data(iconModel).build(),
+                contentDescription = game.name,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().padding(4.dp),
+            )
+        }
+        Spacer(Modifier.height(6.dp))
         Text(
             game.name,
             color = Color.White,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            maxLines = 3,
+            fontSize = 12.sp,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        InfoLine("Formato", game.format.toString())
-        if (game.isMultiDisc) InfoLine("Disco", "${game.discNumber} de ${game.discCount}")
-        game.titleId?.let { InfoLine("Title ID", it) }
-        Spacer(Modifier.height(4.dp))
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .clip(HexShape)
-                .background(Brush.horizontalGradient(listOf(DeepRed, NeonRed)), HexShape)
-                .border(2.dp, Color.White, HexShape)
-                .clickable { onLaunch(game) },
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
-            Spacer(Modifier.width(8.dp))
-            Text("Jogar", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 20.sp)
+        // A set shares one title, so the cards would otherwise be identical.
+        if (game.isMultiDisc) {
+            Text(
+                "Disco ${game.discNumber} de ${game.discCount}",
+                color = Green,
+                fontSize = 11.sp,
+                maxLines = 1,
+            )
         }
     }
 }
 
 @Composable
-private fun InfoLine(label: String, value: String) {
-    Row {
-        Text("$label: ", color = NeonRed, fontWeight = FontWeight.SemiBold)
-        Text(value, color = Color.White)
+private fun QuickActions(onFolder: () -> Unit, onScan: () -> Unit, onInstall: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        QuickAction(Icons.Default.Search, "ESCANEAR JOGOS", "Buscar na pasta", onScan, Modifier.weight(1f))
+        if (AllFilesAccess.isSupported) {
+            QuickAction(Icons.Default.Add, "PASTA DE JOGOS", "Escolher uma pasta", onFolder, Modifier.weight(1f))
+        }
+        QuickAction(Icons.Default.Check, "INSTALAR CONTEÚDO", "DLC e atualizações", onInstall, Modifier.weight(1f))
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun GameCarousel(
-    games: List<Game>,
-    selected: Game,
-    viewModel: GameLibraryViewModel,
-    onSelect: (Game) -> Unit,
-    onLaunch: (Game) -> Unit,
-    onLongPress: (Game) -> Unit,
+private fun QuickAction(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    LazyRow(
-        Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier
+            .clip(shape)
+            .background(Color(0xFF111111))
+            .border(1.dp, LineGreen, shape)
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        items(games, key = { it.stableId }) { game ->
-            val isSelected = game.stableId == selected.stableId
-            // Once per tile: the File.exists() stat must not run on every recomposition.
-            val iconModel = remember(game.stableId) { viewModel.iconFileOrFallback(game) }
-            val shape = RoundedCornerShape(12.dp)
-            Box(
-                Modifier
-                    .size(96.dp)
-                    .clip(shape)
-                    .background(Color(0xFF0D0D0D))
-                    .border(if (isSelected) 3.dp else 1.dp, if (isSelected) NeonRed else DeepRed, shape)
-                    .combinedClickable(
-                        // Tap selects; tapping the selected one again launches it.
-                        onClick = { if (isSelected) onLaunch(game) else onSelect(game) },
-                        onLongClick = { onLongPress(game) },
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context).data(iconModel).build(),
-                    contentDescription = game.name,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxSize().padding(6.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyMessage(
-    text: String,
-    action: String,
-    onAction: () -> Unit,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text, color = Color.White, style = MaterialTheme.typography.bodyLarge)
-        Spacer(Modifier.height(12.dp))
-        Button(
-            onClick = onAction,
-            colors = ButtonDefaults.buttonColors(containerColor = NeonRed, contentColor = Color.White),
-        ) { Text(action) }
+        Icon(icon, contentDescription = null, tint = Green, modifier = Modifier.size(28.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center)
+        Text(subtitle, color = Color(0xFF9A9A9A), fontSize = 11.sp, textAlign = TextAlign.Center)
     }
 }
 
