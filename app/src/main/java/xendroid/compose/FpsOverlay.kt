@@ -84,7 +84,7 @@ temp = (battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10f
     Box(modifier.fillMaxSize().onSizeChanged { boxSize = it }) {
         Text(
             text = String.format(Locale.getDefault(), "FPS: %.1f | %.1f°C", fps, temp),
-color = Color(0xFFFF1E1E),
+color = Color(0xFF76B900),
 fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace,
@@ -92,7 +92,7 @@ fontSize = 16.sp,
                 .offset { IntOffset(offset.x.roundToInt(), offset.y.roundToInt()) } 
                                 .onSizeChanged { textSize = it }
                 .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(4.dp)) 
-                .border(1.dp, Color(0xFF8B0000), RoundedCornerShape(4.dp))
+                .border(1.dp, Color(0xFF3D6100), RoundedCornerShape(4.dp))
                 .padding(horizontal = 5.dp, vertical = 1.dp)
                 .pointerInput(boxSize) {
                     detectDragGestures(
