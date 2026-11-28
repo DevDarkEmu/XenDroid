@@ -1,4 +1,4 @@
-name: XenDroid Adreno 
+name: XenDroid Adreno
 on:
   pull_request:
     branches: main
